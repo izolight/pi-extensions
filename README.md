@@ -25,4 +25,4 @@ pi install /absolute/path/to/laya-playground/laya-guardrails
 PI_LAYA_GUARDRAILS_MODE=confirm pi
 ```
 
-For package-specific configuration, decisions, logging, and tests, see [`laya-guardrails/README.md`](./laya-guardrails/README.md).
+For extension installation and mode configuration, see [`laya-guardrails/README.md`](./laya-guardrails/README.md). For server policy, protocol, logging, and tests, see [`laya-server/README.md`](./laya-server/README.md).
