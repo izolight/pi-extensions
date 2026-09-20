@@ -1,13 +1,12 @@
 # Laya Playground
 
-A small workspace for experimenting with Laya-backed Pi guardrails.
+A small workspace for experimenting with Laya-backed Pi extensions.
 
 ## Directories
 
-- [`laya-server/`](https://github.com/izolight/pi-extensions/tree/master/laya-server) — Python Laya Unix-socket server and server tests
-- [`laya-guardrails/`](./laya-guardrails/) — standalone Pi extension package
-
-Future Pi extensions can live beside `laya-guardrails/` as sibling directories.
+- [`laya-server/`](./laya-server/) — shared Python Laya Unix-socket server and server tests
+- [`laya-guardrails/`](./laya-guardrails/) — standalone Pi guardrails extension package
+- [`laya-model-router/`](./laya-model-router/) — standalone Pi model-router extension with user-defined model mappings
 
 ## Quick start
 
@@ -18,11 +17,12 @@ uv pip install --python .venv/bin/python "laya==0.3.3"
 .venv/bin/python server.py
 ```
 
-In another terminal:
+In another terminal, install either or both extensions:
 
 ```bash
-pi install npm:pi-laya-guardrails
+pi install ./laya-guardrails
+pi install ./laya-model-router
 PI_LAYA_GUARDRAILS_MODE=confirm pi
 ```
 
-For extension installation and mode configuration, see [`laya-guardrails/README.md`](./laya-guardrails/README.md). For server policy, protocol, logging, and tests, see the [Laya server documentation](https://github.com/izolight/pi-extensions/tree/master/laya-server).
+See each extension's README for configuration. Server policy, protocol, logging, and tests are documented in [`laya-server/README.md`](./laya-server/README.md).

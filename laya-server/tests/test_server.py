@@ -20,6 +20,7 @@ class StubAgent:
                 "dangerous_system_command": {"noul": 0.05},
                 "dangerous_action": {"noul": 0.91},
                 "credential_access": {"noul": 0.05},
+                "strength": {"choice": "medium", "confidence": 0.86},
             }
         }
 
@@ -82,6 +83,13 @@ class SocketProtocolTests(unittest.IsolatedAsyncioTestCase):
             ["jailbreak (0.910)", "sensitive data (0.910)", "protected secret path"],
         )
 
+    def test_model_route_returns_a_predefined_strength(self):
+        decision = LayaGuard(StubAgent()).classify({
+            "kind": "model_route",
+            "text": "Refactor this module and update its tests.",
+        })
+        self.assertEqual(decision, {"level": "medium", "confidence": 0.86})
+
     async def test_input_request_returns_a_correlated_denial(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "laya.sock")
@@ -111,6 +119,35 @@ class SocketProtocolTests(unittest.IsolatedAsyncioTestCase):
                     "warnings": [],
                 },
             )
+
+    async def test_route_audit_records_level_but_not_prompt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "laya.sock")
+            log_path = os.path.join(directory, "audit.jsonl")
+            server = await start_server(path, LayaGuard(StubAgent()), log_path=log_path)
+            self.addAsyncCleanup(server.wait_closed)
+            self.addAsyncCleanup(server.close)
+
+            reader, writer = await asyncio.open_unix_connection(path)
+            secret = "PRIVATE-routing-prompt"
+            writer.write(json.dumps({
+                "id": "route-log",
+                "kind": "model_route",
+                "text": secret,
+            }).encode() + b"\n")
+            await writer.drain()
+            await reader.readline()
+            writer.close()
+            await writer.wait_closed()
+            await asyncio.sleep(0)
+
+            with open(log_path, encoding="utf-8") as log_file:
+                log = log_file.read()
+            event = json.loads(log.strip())
+            self.assertEqual(event["verdict"], "routed")
+            self.assertEqual(event["level"], "medium")
+            self.assertEqual(event["confidence"], 0.86)
+            self.assertNotIn(secret, log)
 
     async def test_audit_log_records_metadata_but_not_request_content(self):
         with tempfile.TemporaryDirectory() as directory:

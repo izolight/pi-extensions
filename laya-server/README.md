@@ -1,6 +1,6 @@
-# Laya Guardrail Server
+# Laya Server
 
-This is the policy and inference side of the project. It loads Laya and exposes a persistent Unix-socket JSONL service consumed by the Pi extension. The published source is available at [izolight/pi-extensions/laya-server](https://github.com/izolight/pi-extensions/tree/master/laya-server).
+This is the shared inference side of the project. It loads Laya and exposes a persistent Unix-socket JSONL service consumed by the Pi guardrails and model-router extensions. The published source is available at [izolight/pi-extensions/laya-server](https://github.com/izolight/pi-extensions/tree/master/laya-server).
 
 ## Setup
 
@@ -54,7 +54,13 @@ or:
 {"id":"...","kind":"tool_call","toolName":"bash","input":{"command":"..."}}
 ```
 
-Responses contain the matching ID, a verdict, reasons, scores, and warnings. Prompt text and tool arguments are never included in audit logs.
+The model router sends:
+
+```json
+{"id":"...","kind":"model_route","text":"..."}
+```
+
+Guardrail responses contain the matching ID, a verdict, reasons, scores, and warnings. Router responses contain the matching ID, a `low`, `medium`, or `high` level, and optional confidence. Prompt text and tool arguments are never included in audit logs.
 
 ## Policy
 
@@ -74,6 +80,12 @@ Tool calls are denied when Laya reports:
 - harm severity ≥ `2.50`
 
 The server also applies deterministic fail-safe checks for common secret paths such as `~/.ssh/id_rsa`, `~/.ssh/id_ed25519`, `~/.aws/credentials`, `.env`, and private-key paths. Shutdown commands such as `shutdown`, `poweroff`, `reboot`, `halt`, and equivalent `systemctl`/`loginctl` commands are also denied when found in tool arguments. These rules remain active even if Laya returns `allow`.
+
+Model-routing prompts are classified into three predefined strengths:
+
+- `low`: simple, well-specified, low-risk, or routine work
+- `medium`: multi-step work requiring normal reasoning, debugging, or implementation
+- `high`: ambiguous, architectural, security-sensitive, novel, or unusually demanding work
 
 ## Audit logging
 

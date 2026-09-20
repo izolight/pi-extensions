@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Persistent Laya guardrail server using newline-delimited JSON over a Unix socket."""
+"""Persistent Laya inference server using newline-delimited JSON over a Unix socket."""
 
 import argparse
 import asyncio
@@ -60,6 +60,20 @@ def _contains_dangerous_system_command(value: Any) -> bool:
     if isinstance(value, list):
         return any(_contains_dangerous_system_command(item) for item in value)
     return False
+
+
+def model_route_questions() -> Dict[str, Dict[str, Any]]:
+    return {
+        "strength": {
+            "type": "choice",
+            "instructions": "What model strength is appropriate for completing this coding-agent task?",
+            "criteria": {
+                "low": "simple, well-specified, low-risk, or routine work",
+                "medium": "multi-step work requiring normal reasoning, debugging, or implementation",
+                "high": "ambiguous, architectural, security-sensitive, novel, or unusually demanding work",
+            },
+        }
+    }
 
 
 def tool_questions() -> Dict[str, Dict[str, Any]]:
@@ -129,7 +143,18 @@ class LayaGuard:
             }
             result = self.agent.predict(state, tool_questions())
             return self._apply_hard_denials(self._tool_decision(result["answers"]), hard_reasons)
-        raise ValueError("kind must be 'input' or 'tool_call'")
+        if kind == "model_route":
+            result = self.agent.predict({"prompt": str(request.get("text", ""))}, model_route_questions())
+            answer = result["answers"]["strength"]
+            level = answer["choice"]
+            if level not in ("low", "medium", "high"):
+                raise ValueError("Laya returned an invalid model strength")
+            decision = {"level": level}
+            confidence = answer.get("confidence")
+            if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
+                decision["confidence"] = float(confidence)
+            return decision
+        raise ValueError("kind must be 'input', 'tool_call', or 'model_route'")
 
     @staticmethod
     def _apply_hard_denials(decision: Dict[str, Any], hard_reasons: List[str]) -> Dict[str, Any]:
@@ -204,12 +229,16 @@ def _audit(
     event = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "kind": request.get("kind", "unknown"),
-        "verdict": decision.get("verdict", "error"),
+        "verdict": decision.get("verdict", "routed" if "level" in decision else "error"),
         "reasons": decision.get("reasons", []),
         "scores": decision.get("scores", {}),
         "warnings": decision.get("warnings", []),
         "latency_ms": round((time.monotonic() - started) * 1000, 1),
     }
+    if "level" in decision:
+        event["level"] = decision["level"]
+    if "confidence" in decision:
+        event["confidence"] = decision["confidence"]
     if request.get("kind") == "tool_call" and isinstance(request.get("toolName"), str):
         event["tool"] = request["toolName"]
     line = json.dumps(event, separators=(",", ":"))
@@ -285,7 +314,7 @@ async def run(args: argparse.Namespace) -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop.set)
-    print("Laya guardrails listening on %s" % args.socket, flush=True)
+    print("Laya server listening on %s" % args.socket, flush=True)
     async with server:
         await stop.wait()
     if os.path.exists(args.socket):
