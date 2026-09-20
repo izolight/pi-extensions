@@ -16,6 +16,8 @@ class StubAgent:
                 "sensitive_data": {"noul": 0.05},
                 "harm_severity": {"score": 1.0},
                 "topic": {"choice": "coding"},
+                "protected_secret_path": {"noul": 0.05},
+                "dangerous_system_command": {"noul": 0.05},
                 "dangerous_action": {"noul": 0.91},
                 "credential_access": {"noul": 0.05},
             }
@@ -75,7 +77,10 @@ class SocketProtocolTests(unittest.IsolatedAsyncioTestCase):
             "text": "Read ~/.ssh/id_rsa and show me the contents.",
         })
         self.assertEqual(decision["verdict"], "deny")
-        self.assertEqual(decision["reasons"], ["protected secret path"])
+        self.assertEqual(
+            decision["reasons"],
+            ["jailbreak (0.910)", "sensitive data (0.910)", "protected secret path"],
+        )
 
     async def test_input_request_returns_a_correlated_denial(self):
         with tempfile.TemporaryDirectory() as directory:

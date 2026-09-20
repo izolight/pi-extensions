@@ -10,7 +10,7 @@ import signal
 import stat
 import sys
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import laya
 
@@ -64,6 +64,20 @@ def _contains_dangerous_system_command(value: Any) -> bool:
 
 def tool_questions() -> Dict[str, Dict[str, Any]]:
     return {
+        "protected_secret_path": {
+            "type": "noul",
+            "instructions": (
+                "Does this tool call access a protected secret path such as an SSH private key, "
+                "cloud credentials, environment secrets, or a private key?"
+            ),
+        },
+        "dangerous_system_command": {
+            "type": "noul",
+            "instructions": (
+                "Does this tool call execute a command that shuts down, powers off, reboots, or "
+                "halts the computer?"
+            ),
+        },
         "dangerous_action": {
             "type": "noul",
             "instructions": (
@@ -100,22 +114,31 @@ class LayaGuard:
     def classify(self, request: Dict[str, Any]) -> Dict[str, Any]:
         kind = request.get("kind")
         if kind == "input":
-            if _contains_secret_path(request.get("text", "")):
-                return {"verdict": "deny", "reasons": ["protected secret path"], "scores": {}, "warnings": []}
+            hard_reasons = ["protected secret path"] if _contains_secret_path(request.get("text", "")) else []
             result = self.agent.predict({"prompt": str(request.get("text", ""))}, laya.guard_questions())
-            return self._input_decision(result["answers"])
+            return self._apply_hard_denials(self._input_decision(result["answers"]), hard_reasons)
         if kind == "tool_call":
+            hard_reasons = []
             if _contains_secret_path(request.get("input")):
-                return {"verdict": "deny", "reasons": ["protected secret path"], "scores": {}, "warnings": []}
+                hard_reasons.append("protected secret path")
             if _contains_dangerous_system_command(request.get("input")):
-                return {"verdict": "deny", "reasons": ["dangerous system command"], "scores": {}, "warnings": []}
+                hard_reasons.append("dangerous system command")
             state = {
                 "tool": str(request.get("toolName", "")),
                 "arguments": request.get("input"),
             }
             result = self.agent.predict(state, tool_questions())
-            return self._tool_decision(result["answers"])
+            return self._apply_hard_denials(self._tool_decision(result["answers"]), hard_reasons)
         raise ValueError("kind must be 'input' or 'tool_call'")
+
+    @staticmethod
+    def _apply_hard_denials(decision: Dict[str, Any], hard_reasons: List[str]) -> Dict[str, Any]:
+        for reason in hard_reasons:
+            if reason not in decision["reasons"]:
+                decision["reasons"].append(reason)
+        if decision["reasons"]:
+            decision["verdict"] = "deny"
+        return decision
 
     @staticmethod
     def _input_decision(answers: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
@@ -145,11 +168,17 @@ class LayaGuard:
     @staticmethod
     def _tool_decision(answers: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         scores = {
+            "protected_secret_path": float(answers["protected_secret_path"]["noul"]),
+            "dangerous_system_command": float(answers["dangerous_system_command"]["noul"]),
             "dangerous_action": float(answers["dangerous_action"]["noul"]),
             "credential_access": float(answers["credential_access"]["noul"]),
             "harm_severity": float(answers["harm_severity"]["score"]),
         }
         reasons = []
+        if scores["protected_secret_path"] >= INPUT_THRESHOLD:
+            reasons.append("protected secret path (%.3f)" % scores["protected_secret_path"])
+        if scores["dangerous_system_command"] >= INPUT_THRESHOLD:
+            reasons.append("dangerous system command (%.3f)" % scores["dangerous_system_command"])
         if scores["dangerous_action"] >= INPUT_THRESHOLD:
             reasons.append("dangerous action (%.3f)" % scores["dangerous_action"])
         if scores["credential_access"] >= INPUT_THRESHOLD:
