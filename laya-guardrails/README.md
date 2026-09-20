@@ -2,7 +2,7 @@
 
 A thin, standalone Pi extension that sends user prompts and LLM-generated tool calls to a local Laya guardrail server. It does not depend on any other Pi extension.
 
-The server owns model inference, policy, deterministic protections, and audit logging. See [`../laya-server/README.md`](../laya-server/README.md).
+The server owns model inference, policy, deterministic protections, and audit logging. See the [Laya server](https://github.com/izolight/pi-extensions/tree/master/laya-server).
 
 ## Install
 
@@ -15,10 +15,16 @@ uv pip install --python .venv/bin/python "laya==0.3.3"
 .venv/bin/python server.py
 ```
 
-Then install this directory as a Pi package:
+Then install the published Pi package:
 
 ```bash
-pi install /absolute/path/to/laya-playground/laya-guardrails
+pi install npm:pi-laya-guardrails
+```
+
+For local development instead:
+
+```bash
+pi install ./laya-guardrails
 ```
 
 For a one-off run from this directory:

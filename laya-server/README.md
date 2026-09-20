@@ -1,6 +1,6 @@
 # Laya Guardrail Server
 
-This is the policy and inference side of the project. It loads Laya and exposes a persistent Unix-socket JSONL service consumed by the Pi extension.
+This is the policy and inference side of the project. It loads Laya and exposes a persistent Unix-socket JSONL service consumed by the Pi extension. The published source is available at [izolight/pi-extensions/laya-server](https://github.com/izolight/pi-extensions/tree/master/laya-server).
 
 ## Setup
 
