@@ -33,27 +33,35 @@ Create `~/.pi/agent/laya-model-router.json`:
 
 ```json
 {
+  "mode": "initial",
   "levels": {
     "low": {
-      "provider": "anthropic",
-      "model": "claude-haiku-4-5",
+      "provider": "openai-codex",
+      "model": "gpt-5.6-luna",
       "thinkingLevel": "off"
     },
     "medium": {
-      "provider": "anthropic",
-      "model": "claude-sonnet-4-5",
-      "thinkingLevel": "medium"
+      "provider": "openai-codex",
+      "model": "gpt-5.6-luna",
+      "thinkingLevel": "xhigh"
     },
     "high": {
-      "provider": "anthropic",
-      "model": "claude-opus-4-6",
-      "thinkingLevel": "high"
+      "provider": "openai-codex",
+      "model": "gpt-5.6-sol",
+      "thinkingLevel": "medium"
     }
   }
 }
 ```
 
 A trusted project can override individual levels in `.pi/laya-model-router.json`. Targets must already be available to Pi and authenticated. `thinkingLevel` is optional.
+
+Routing modes:
+
+- `initial` (default) — classify the first prompt in a session, then keep that model for the rest of the session.
+- `every` — classify every new prompt and switch models as needed.
+
+You can also select the mode for a run with `PI_LAYA_ROUTER_MODE=initial` or `PI_LAYA_ROUTER_MODE=every`. The environment variable takes precedence over the config file. On resumed sessions, `initial` mode does not route again if the session already contains a user message.
 
 The levels mean:
 
@@ -71,6 +79,7 @@ Routing fails open: if Laya is unavailable, a level is unmapped, or its target c
 |---|---|---|
 | `PI_LAYA_SOCKET` | `/tmp/pi-laya-guardrails.sock` | Shared Laya server Unix socket |
 | `PI_LAYA_TIMEOUT_MS` | `2000` | Routing request timeout |
+| `PI_LAYA_ROUTER_MODE` | config or `initial` | `initial` or `every` |
 
 ## Tests
 
